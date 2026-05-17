@@ -1,0 +1,30 @@
+[package]
+name = "constitutional-runtime"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "IR, policy, capability, evidence, and admission boundaries for accountable execution. Material acts must be semantically admissible, policy-permitted, capability-realizable, and evidentially accountable."
+repository = "https://github.com/LogLine-Foundation/constitutional-runtime"
+keywords = ["runtime", "policy", "evidence", "admission", "ir"]
+categories = ["data-structures", "no-std::no-alloc"]
+readme = "README.md"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha2 = "0.10"
+thiserror = "2.0"
+rusqlite = { version = "0.32", optional = true }
+reqwest = { version = "0.12", optional = true, default-features = false, features = ["json", "blocking", "rustls-tls"] }
+
+[features]
+default = []
+sqlite-evidence = ["dep:rusqlite"]
+supabase-evidence = ["dep:reqwest"]
+
+[dev-dependencies]
+serde_json = "1.0"
+tempfile = "3.10"
+
+[lints.rust]
+unsafe_code = "forbid"
