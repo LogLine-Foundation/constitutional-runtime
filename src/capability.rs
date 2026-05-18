@@ -18,6 +18,7 @@
 
 use crate::act_identity::CanonicalActionId;
 use crate::ir::IRPrimitive;
+use crate::tier::{GrammarKind, LlmTier};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
@@ -44,6 +45,17 @@ pub struct CapabilityManifest {
     /// on guarantee, cost, latency, and evidence envelopes.
     #[serde(default)]
     pub bindings: Vec<CapabilityBinding>,
+    /// LIP-0008: which LLM tiers this substrate accepts at ingress.
+    /// `None` = unspecified (legacy / compat); `Some(empty)` = explicitly
+    /// allows zero tiers; `Some(set)` = explicit policy. The distinction
+    /// matters when admission enforcement lands in a later patch.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub allowed_ingress_tiers: Option<BTreeSet<LlmTier>>,
+    /// LIP-0008: which grammars this substrate accepts at ingress.
+    /// Same `None` / `Some(empty)` / `Some(set)` semantics as
+    /// `allowed_ingress_tiers`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub allowed_grammars: Option<BTreeSet<GrammarKind>>,
 }
 
 /// Stable name for [`crate::ir::IRPrimitive`] variants (for manifest matching).

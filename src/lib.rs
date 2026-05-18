@@ -9,6 +9,7 @@ pub mod act_identity;
 pub mod admission;
 pub mod capability;
 pub mod decision;
+pub mod dossier;
 pub mod evidence;
 #[cfg(feature = "sqlite-evidence")]
 pub mod evidence_sqlite;
@@ -25,6 +26,7 @@ pub mod planning_compiler;
 pub mod policy;
 pub mod refs;
 pub mod strong_grammar;
+pub mod tier;
 pub mod validation;
 
 pub use act_identity::{CanonicalActionId, IdentityError};
@@ -40,6 +42,7 @@ pub use decision::{
     assert_decide_free, compile_flow, compile_node, contains_decide, lower_compiled_flow,
     materialize_primitive, resolve_lower_one, DecideResolver, PlannerError, PlannerLoweringError,
 };
+pub use dossier::{Candidate, DecisionRequest, Dossier, FrontierVerdict, GhostRecord};
 pub use evidence::{
     close_execution_evidence, EvidenceContract, EvidenceRecord, EvidenceStore, EvidenceStoreError,
     FailureToClose, FileEvidenceStore,
@@ -72,6 +75,7 @@ pub use strong_grammar::{
     compile_strong_json_to_ir_graph, compile_strong_program, parse_strong_json, ConfirmSpec,
     ExecuteSpec, PipelineSpec, PipelineStep, ReviewSpec, StrongHandler, StrongProgram,
 };
+pub use tier::{GrammarKind, LlmTier};
 pub use validation::{
     check_capability, validate_admissibility, validate_capability, validate_policy,
     validate_structure, AdmissibilityContext, AdmissibleNode, ValidationError,
