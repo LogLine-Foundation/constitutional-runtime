@@ -364,6 +364,14 @@ pub fn validate_ingress_context(ctx: &AdmissibilityContext) -> Result<(), Valida
 /// declared `None` (legacy, treated as permissive) or (b) the manifest's
 /// declared set contains the value. Context with `None` on a side never
 /// constrains the manifest on that side.
+///
+/// DOCTRINAL TODO (resolved when LIP-0008 transitions Proposed → Accepted):
+/// while the LIP is Proposed, `allowed_*: None` on a manifest is treated
+/// as legacy permissive — it accepts any ingress so callers can migrate.
+/// When LIP-0008 is Accepted, the foundation must decide whether `None`
+/// stays permissive (formal migration window) or becomes a Ghost /
+/// validation error requiring explicit declaration. Legacy permissiveness
+/// is a bridge, not a final constitution.
 fn manifest_accepts_ingress(m: &CapabilityManifest, ctx: &AdmissibilityContext) -> bool {
     if let Some(tier) = &ctx.ingress_tier {
         if let Some(allowed) = &m.allowed_ingress_tiers {

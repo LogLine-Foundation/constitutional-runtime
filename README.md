@@ -55,6 +55,17 @@ The IR knows nothing about specific labs, hosts, or operators. `InferSurface::Na
 
 `StandardRuntimeLowerer` is the default lowerer. Applications may implement the `Lowerer` trait for substrate-specific targets without forking this crate.
 
+## LIP-0008 — LLM tier and dossier discipline
+
+The runtime can represent and validate LLM ingress tier × grammar discipline:
+Mini/Operator/Translator/Frontier tiers and Operational/Strong/Dossier grammars.
+
+Current support is intentionally narrow: the runtime validates declared ingress
+legitimacy and manifest acceptance. It does not call LLMs, dispatch work, or
+close evidence.
+
+See the [LIP-0008 spec](https://github.com/LogLine-Foundation/governance/blob/main/lips/LIP-0008-llm-tier-discipline-and-dossier-discipline.md) in the governance repo for the constitutional rule the runtime obeys.
+
 ## Where it sits in the LogLine ecosystem
 
 ```

@@ -3,6 +3,9 @@
 //! Execution is not sovereign: material actions must be semantically admissible,
 //! policy-permitted, capability-realizable, and evidentially accountable.
 //!
+//! LIP-0008 support: represents LLM ingress tiers, grammar kinds, dossiers,
+//! and validates declared tier × grammar legitimacy during admissibility.
+//!
 //! See `docs/runtime/constitutional-runtime.md` for the full definition.
 
 pub mod act_identity;
