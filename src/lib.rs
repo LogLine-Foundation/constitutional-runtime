@@ -77,8 +77,8 @@ pub use strong_grammar::{
 };
 pub use tier::{GrammarKind, LlmTier};
 pub use validation::{
-    check_capability, validate_admissibility, validate_capability, validate_policy,
-    validate_structure, AdmissibilityContext, AdmissibleNode, ValidationError,
+    check_capability, validate_admissibility, validate_capability, validate_ingress_context,
+    validate_policy, validate_structure, AdmissibilityContext, AdmissibleNode, ValidationError,
     MAX_ROUTE_NESTING_DEPTH,
 };
 

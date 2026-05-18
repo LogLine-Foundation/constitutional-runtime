@@ -664,6 +664,29 @@ fn validation_error_to_runtime_failure(
             reason_code: "capability_unsatisfied".into(),
             detail: msg.clone(),
         },
+        // LIP-0008 ingress errors fold into the Validation stage with
+        // ingress-specific reason codes. Detailed mapping into a dedicated
+        // RuntimeFailure variant is left for a later PR; preserving the
+        // back-compat shape keeps this patch minimal.
+        ValidationError::IncompleteIngressContext { .. } => RuntimeFailure::Validation {
+            at: "ingress".into(),
+            field: None,
+            detail: e.to_string(),
+            reason_code: "ingress_incomplete".into(),
+        },
+        ValidationError::TierGrammarIllegitimate { .. } => RuntimeFailure::Validation {
+            at: "ingress".into(),
+            field: None,
+            detail: e.to_string(),
+            reason_code: "tier_grammar_illegitimate".into(),
+        },
+        ValidationError::NoCapabilityForIngress { .. } => RuntimeFailure::Capability {
+            primitive: format!("{:?}", PrimitiveName::from_primitive(&node.body)),
+            kind: primitive_kind(&node.body).map(str::to_owned),
+            attempted_substrate: None,
+            reason_code: "no_capability_for_ingress".into(),
+            detail: e.to_string(),
+        },
     }
 }
 
@@ -745,6 +768,7 @@ mod tests {
             runtime_permitted: true,
             at_execution_boundary: true,
             require_evidence_closure: true,
+            ..Default::default()
         }
     }
 
