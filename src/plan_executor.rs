@@ -464,6 +464,7 @@ mod tests {
             runtime_permitted: true,
             at_execution_boundary: true,
             require_evidence_closure: true,
+            ..Default::default()
         }
     }
 

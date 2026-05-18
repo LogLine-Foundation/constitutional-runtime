@@ -3,6 +3,7 @@
 use crate::capability::{primitive_kind, CapabilityManifest, PrimitiveName};
 use crate::ir::{IRPrimitive, IrNode};
 use crate::policy::PolicyClass;
+use crate::tier::{GrammarKind, LlmTier};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -19,6 +20,16 @@ pub struct AdmissibilityContext {
     pub at_execution_boundary: bool,
     /// If true, substrates must declare `evidence.write` in [`CapabilityManifest::declared_guarantees`].
     pub require_evidence_closure: bool,
+    /// LIP-0008: which LLM tier emitted the ingress that produced this node.
+    /// `None` together with `ingress_grammar = None` means legacy caller —
+    /// LIP-0008 checks are skipped. `Some` requires `ingress_grammar` to also
+    /// be `Some`; half-context is rejected.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ingress_tier: Option<LlmTier>,
+    /// LIP-0008: which grammar carried the ingress. Must be `Some` whenever
+    /// `ingress_tier` is `Some` (and vice versa).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ingress_grammar: Option<GrammarKind>,
 }
 
 impl Default for AdmissibilityContext {
@@ -28,6 +39,8 @@ impl Default for AdmissibilityContext {
             runtime_permitted: true,
             at_execution_boundary: true,
             require_evidence_closure: true,
+            ingress_tier: None,
+            ingress_grammar: None,
         }
     }
 }
@@ -46,6 +59,32 @@ pub enum ValidationError {
     Policy(String),
     #[error("capability: {0}")]
     Capability(String),
+    /// LIP-0008: ingress context carries one side of (tier, grammar) but not
+    /// the other. Legacy callers leave both `None`; LIP-0008-aware callers
+    /// must set both.
+    #[error(
+        "ingress: incomplete LIP-0008 context (tier_present={ingress_tier_present}, grammar_present={ingress_grammar_present}); set both or neither"
+    )]
+    IncompleteIngressContext {
+        ingress_tier_present: bool,
+        ingress_grammar_present: bool,
+    },
+    /// LIP-0008: constitutional rule violated — this grammar does not admit
+    /// this tier per the matrix in `GrammarKind::admits`.
+    #[error("ingress: grammar {grammar:?} does not admit tier {tier:?} per LIP-0008")]
+    TierGrammarIllegitimate { tier: LlmTier, grammar: GrammarKind },
+    /// LIP-0008: no capability manifest accepts the declared ingress
+    /// (tier, grammar) for this primitive. At least one manifest must allow
+    /// the tier (or have `allowed_ingress_tiers = None`, treated as legacy
+    /// permissive) AND allow the grammar (same legacy rule for `None`).
+    #[error(
+        "ingress: no capability manifest accepts ingress tier={tier:?} grammar={grammar:?} for primitive {primitive:?}"
+    )]
+    NoCapabilityForIngress {
+        primitive: PrimitiveName,
+        tier: Option<LlmTier>,
+        grammar: Option<GrammarKind>,
+    },
 }
 
 fn max_nesting_depth(prim: &IRPrimitive) -> usize {
@@ -239,6 +278,7 @@ pub fn validate_capability(
         ));
     }
     let mut any = false;
+    let mut any_realizable = false;
     for m in manifests {
         if !m.can_realize(&node.body) {
             continue;
@@ -249,10 +289,25 @@ pub fn validate_capability(
         if !m.evidence_realizable(ctx.require_evidence_closure) {
             continue;
         }
+        any_realizable = true;
+        if !manifest_accepts_ingress(m, ctx) {
+            continue;
+        }
         any = true;
         break;
     }
     if !any {
+        // If at least one manifest could realize the primitive but none
+        // accepted the declared ingress, surface the LIP-0008-specific
+        // error so callers can distinguish "wrong substrate" from
+        // "no substrate" and from "ingress mismatch".
+        if any_realizable && (ctx.ingress_tier.is_some() || ctx.ingress_grammar.is_some()) {
+            return Err(ValidationError::NoCapabilityForIngress {
+                primitive: PrimitiveName::from_primitive(&node.body),
+                tier: ctx.ingress_tier,
+                grammar: ctx.ingress_grammar,
+            });
+        }
         return Err(ValidationError::Capability(format!(
             "no substrate can realize {:?} with kind={:?} and evidence requirements (manifests checked: {})",
             PrimitiveName::from_primitive(&node.body),
@@ -271,8 +326,60 @@ pub fn validate_admissibility(
 ) -> Result<AdmissibleNode, ValidationError> {
     validate_structure(node)?;
     validate_policy(node, ctx)?;
+    validate_ingress_context(ctx)?;
     validate_capability(node, manifests, ctx)?;
     Ok(AdmissibleNode { node: node.clone() })
+}
+
+/// LIP-0008: enforce the constitutional matrix on ingress tier × grammar.
+///
+/// - `(None, None)` is the legacy / unspecified path; LIP-0008 checks are
+///   skipped entirely.
+/// - `(Some, Some)` triggers `GrammarKind::admits`.
+/// - `(Some, None)` and `(None, Some)` are rejected as half-context.
+pub fn validate_ingress_context(ctx: &AdmissibilityContext) -> Result<(), ValidationError> {
+    match (&ctx.ingress_tier, &ctx.ingress_grammar) {
+        (None, None) => Ok(()),
+        (Some(tier), Some(grammar)) => {
+            if grammar.admits(tier) {
+                Ok(())
+            } else {
+                Err(ValidationError::TierGrammarIllegitimate {
+                    tier: *tier,
+                    grammar: *grammar,
+                })
+            }
+        }
+        (tier, grammar) => Err(ValidationError::IncompleteIngressContext {
+            ingress_tier_present: tier.is_some(),
+            ingress_grammar_present: grammar.is_some(),
+        }),
+    }
+}
+
+/// LIP-0008 per-manifest ingress filter.
+///
+/// A manifest **accepts** the ingress pair if, for each of `ingress_tier`
+/// and `ingress_grammar` that the context declares, either (a) the manifest
+/// declared `None` (legacy, treated as permissive) or (b) the manifest's
+/// declared set contains the value. Context with `None` on a side never
+/// constrains the manifest on that side.
+fn manifest_accepts_ingress(m: &CapabilityManifest, ctx: &AdmissibilityContext) -> bool {
+    if let Some(tier) = &ctx.ingress_tier {
+        if let Some(allowed) = &m.allowed_ingress_tiers {
+            if !allowed.contains(tier) {
+                return false;
+            }
+        }
+    }
+    if let Some(grammar) = &ctx.ingress_grammar {
+        if let Some(allowed) = &m.allowed_grammars {
+            if !allowed.contains(grammar) {
+                return false;
+            }
+        }
+    }
+    true
 }
 
 /// Back-compat: single-manifest capability check.
