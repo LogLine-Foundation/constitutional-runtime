@@ -65,6 +65,9 @@ LogLine-Foundation/governance     → LIPs and process
 LogLine-Foundation/constitutional-runtime  (this repo)
                                   → IR + policy + capability + evidence + admission
                                     mechanism, application-agnostic
+                                  → does NOT emit logline.receipt.v0 directly;
+                                    receipt emission is delegated to downstream
+                                    applications via the engine's receipt crate
 
 Applications (downstream)         → use this crate as a dependency,
                                     bring their own substrate ids, policies,
